@@ -3,11 +3,11 @@ from scipy.special import expit, xlogy, xlog1py, logsumexp, factorial
 from scipy.stats import binom, poisson, norm, nbinom
 import scipy as sp
 import numba as nb
-from numba import njit
+from numba import njit, prange
 
 
-
-def nll(Y, A, B, family='gaussian', nuisance=1., eps=1e-2):
+@njit
+def nll(Y, A, B, family='gaussian', nuisance=1.):
     """
     Compute the negative log likelihood for generalized linear models with optional nuisance parameters.
     
@@ -33,26 +33,28 @@ def nll(Y, A, B, family='gaussian', nuisance=1., eps=1e-2):
     
     Theta = A @ B.T
     Ty = Y.copy()
+    n = Y.shape[0]
     
     if family == 'binomial':
-        b = lambda x: nuisance * np.log(1 + np.exp(x))
+        b = nuisance * np.log(1 + np.exp(Theta))
     elif family == 'poisson':
         Theta = np.clip(Theta, -np.inf, 1e2)
-        b = lambda x: np.exp(x)
+        b = np.exp(Theta)
     elif family == 'gaussian':
-        b = lambda x: x**2/2.
+        b = Theta**2/2.
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial': # link = 'log'  
-        Theta = np.clip(Theta, -np.inf, -eps)
-        b = lambda x: - nuisance * np.log(1 - np.exp(x))
+        Theta = np.clip(Theta, -np.log(1e4), -1e-4)
+        b = - nuisance * np.log(1 - np.exp(Theta))
     else:
         raise ValueError('Family not recognized')
-    nll = - np.mean(Ty * Theta - b(Theta))
+    nll = - np.sum(Ty * Theta - b) / np.float64(n)
     return nll
 
 
 
-def grad(Y, A, B, family='gaussian', nuisance=1., eps=1e-2):
+@njit
+def grad(Y, A, B, family='gaussian', nuisance=1.):
     """
     Compute the gradient of log likelihood with respect to B
     for generalized linear models with optional nuisance parameters.
@@ -80,25 +82,28 @@ def grad(Y, A, B, family='gaussian', nuisance=1., eps=1e-2):
     """
     Theta = A @ B.T
     Ty = Y.copy()
+    n = Y.shape[0]
     
     if family == 'binomial':
-        b_p = lambda x: nuisance / (1 + np.exp(-x))
+        b_p = nuisance / (1 + np.exp(-Theta))
     elif family == 'poisson':
         Theta = np.clip(Theta, -np.inf, 1e2)
-        b_p = lambda x: np.exp(x)
+        b_p = np.exp(Theta)
     elif family == 'gaussian':
-        b_p = lambda x: x
+        b_p = Theta
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial': # link = 'log'  
-        Theta = np.clip(Theta, -np.inf, -eps)
-        b_p = lambda x: - nuisance * np.exp(x) / (1 - np.exp(x))
+        Theta = np.clip(Theta, -np.log(1e4), -1e-4)
+        b_p = nuisance / (np.exp(-Theta) - 1)
     else:
         raise ValueError('Family not recognized')
-    grad = - (Ty - b_p(Theta)).T @ A / np.product(Theta.shape)
+    grad = - (Ty - b_p).T @ A / np.float64(n)#(np.float64(n) * np.float64(p))
     return grad
 
 
-def hess(Y, Theta, family='gaussian', nuisance=1., eps=1e-2):
+
+@njit
+def hess(Y, Theta, family='gaussian', nuisance=1.):
     """
     Compute the gradient of log likelihood with respect to B
     for generalized linear models with optional nuisance parameters.
@@ -123,19 +128,19 @@ def hess(Y, Theta, family='gaussian', nuisance=1., eps=1e-2):
         The hessian of the log likelihood with respect to Theta.
     """
     Ty = Y.copy()
+    n = Y.shape[0]
     
     if family == 'binomial':
-        b_pp = lambda x: nuisance * np.exp(-x) / (1 + np.exp(-x))**2
+        b_pp = nuisance * np.exp(-Theta) / (1 + np.exp(-Theta))**2
     elif family == 'poisson':
         Theta = np.clip(Theta, -np.inf, 1e2)
-        b_pp = lambda x: np.exp(x)
+        b_pp = np.exp(Theta)
     elif family == 'gaussian':
-        b_pp = lambda x: np.ones_like(x)
-        Ty /= np.sqrt(nuisance)
+        b_pp = np.ones_like(Theta)
     elif family == 'negative_binomial': # link = 'log'  
-        Theta = np.clip(Theta, -np.inf, -eps)
-        b_pp = lambda x: - nuisance * np.exp(x) / (1 - np.exp(x))**2
+        Theta = np.clip(Theta, -np.log(1e4), -1e-4)
+        b_pp = nuisance * np.exp(Theta) / (1 - np.exp(Theta))**2
     else:
         raise ValueError('Family not recognized')
-    hess = b_pp(Theta) / np.product(Theta.shape)
+    hess = b_pp #(np.float64(n) * np.float64(p))
     return hess
