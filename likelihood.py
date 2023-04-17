@@ -44,7 +44,7 @@ def nll(Y, A, B, family='gaussian', nuisance=1.):
         b = Theta**2/2.
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial': # link = 'log'  
-        Theta = np.clip(Theta, -np.log(1e4), -1e-4)
+        Theta = np.clip(Theta, -np.inf, -1e-2)
         b = - nuisance * np.log(1 - np.exp(Theta))
     else:
         raise ValueError('Family not recognized')
@@ -93,7 +93,7 @@ def grad(Y, A, B, family='gaussian', nuisance=1.):
         b_p = Theta
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial': # link = 'log'  
-        Theta = np.clip(Theta, -np.log(1e4), -1e-4)
+        Theta = np.clip(Theta, -np.inf, -1e-2)
         b_p = nuisance / (np.exp(-Theta) - 1)
     else:
         raise ValueError('Family not recognized')
@@ -138,7 +138,7 @@ def hess(Y, Theta, family='gaussian', nuisance=1.):
     elif family == 'gaussian':
         b_pp = np.ones_like(Theta)
     elif family == 'negative_binomial': # link = 'log'  
-        Theta = np.clip(Theta, -np.log(1e4), -1e-4)
+        Theta = np.clip(Theta, -np.inf, -1e-2)
         b_pp = nuisance * np.exp(Theta) / (1 - np.exp(Theta))**2
     else:
         raise ValueError('Family not recognized')
