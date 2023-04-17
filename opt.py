@@ -1,14 +1,16 @@
 from gcate.likelihood import *
+from gcate.utils import *
 import cvxpy as cp
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from collections import defaultdict
 import statsmodels.api as sm
-
+import warnings
+warnings.filterwarnings('ignore')
 
 @njit
 def line_search(Y, A, x0, g, d, lam=0., alpha=1., beta=0.5, max_iters=100, tol=1e-3, 
-                family='gaussian', nuisance=1.):
+                family='gaussian', nuisance=1., intercept=1):
     """
     Performs line search to find the step size that minimizes a given function.
     
@@ -29,9 +31,8 @@ def line_search(Y, A, x0, g, d, lam=0., alpha=1., beta=0.5, max_iters=100, tol=1
     f0 = nll(Y, A, x0, family, nuisance)
     
     # Initialize the step size.
-    t = alpha# * np.ones(x0.shape[:-1])[:, np.newaxis]
+    t = alpha
     norm_g = np.linalg.norm(g)
-    #norm_g = np.linalg.norm(dx, axis=1, keepdims=True)
 
     # Iterate until the maximum number of iterations is reached or the step size is small enough.
     for i in range(max_iters):
@@ -39,7 +40,7 @@ def line_search(Y, A, x0, g, d, lam=0., alpha=1., beta=0.5, max_iters=100, tol=1
         # Compute the new point.
         x1 = x0 - t*g
         if lam>0.:
-            x1[:d] = np.sign(x1[:d]) * np.maximum(np.abs(x1[:d]) - lam, 0.)
+            x1[intercept:d] = np.sign(x1[intercept:d]) * np.maximum(np.abs(x1[intercept:d]) - lam, 0.)
         
         # Evaluate the function at the new point.
         f1 = nll(Y, A, x1, family, nuisance)
@@ -52,10 +53,9 @@ def line_search(Y, A, x0, g, d, lam=0., alpha=1., beta=0.5, max_iters=100, tol=1
         t *= beta
 
     # Return the maximum step size.
-    # t[ind] = alpha
     x1 = x0 - alpha*g
     if lam>0.:
-        x1[:d] = np.sign(x1[:d]) * np.maximum(np.abs(x1[:d]) - lam, 0.)
+        x1[intercept:d] = np.sign(x1[intercept:d]) * np.maximum(np.abs(x1[intercept:d]) - lam, 0.)
     return x1
 
 
@@ -113,7 +113,7 @@ def prox_gd(x, g, eta, C, lam=0.):
 @njit(parallel=True)
 def update(Y, A, B, d, lam, P1, P2,
           family, nuisance, C,
-          alpha, beta, max_iters, tol):
+          alpha, beta, max_iters, tol, intercept=1):
     n, p = Y.shape
     
     g = grad(Y.T, B, A, family, nuisance)
@@ -123,16 +123,16 @@ def update(Y, A, B, d, lam, P1, P2,
     for i in prange(n):
         A[i, :] = line_search(Y[i, :].T, B, A[i, :], g[i, :], d, 0.,
                           alpha, beta, max_iters, tol,
-                          family, nuisance)
+                          family, nuisance, intercept)
 #     A[:, d:] = prox_gd(A[:, d:], g[:, d:], eta, C, lam=0.)
 
     g = grad(Y, A, B, family, nuisance)
     if P2 is not None:
-        g[:,:d] = P2 @ g[:,:d]
+        g[:,intercept:d] = P2 @ g[:,intercept:d]
     for j in prange(p):
         B[j, :] = line_search(Y[:, j], A, B[j, :], g[j, :], d, lam,
                           alpha, beta, max_iters, tol,
-                          family, nuisance)
+                          family, nuisance, intercept)
 #     B = prox_gd(B, g, eta, C, lam=lam)
 
     func_val = nll(Y, A, B, family, nuisance)
@@ -143,8 +143,8 @@ def update(Y, A, B, d, lam, P1, P2,
 def alter_min(
     Y, r, X=None, P2=None, C=None, lam=0.,
     A=None, B=None,
-    kwargs_glm={},
-    kwargs_ls={}, max_iters=100, eps=1e-4):
+    kwargs_glm={}, kwargs_ls={}, kwargs_es={},
+    max_iters=100, fit_intercept=True):
     '''
     Alternative minimization of latent factorization for generalized linear models.
 
@@ -166,17 +166,19 @@ def alter_min(
     if C is None:
         C = 5 * np.sqrt(r)
         
+    intercept = 1 if fit_intercept else 0
     if X is None:
         d = 0
         P1 = None
     else:
         d = X.shape[1]
-        Q, _ = sp.linalg.qr(X, mode='economic')
+        Q, _ = sp.linalg.qr(X[:,intercept:], mode='economic')
         P1 = np.identity(n) - Q @ Q.T
+        
+        
 
     # to do : check X has col norm <= C
 
-    # to do: svd start
     # initialization
     # Theta = A @ B^T
     if A is None or B is None:
@@ -198,25 +200,29 @@ def alter_min(
         A[:, d:] = u * s[None,:]**(1/2) / np.sqrt(n)
         B[:, d:] = vh.T * s[None,:]**(1/2) / np.sqrt(p)
         del E, u, s, vh
+        
+        if kwargs_glm['family']=='negative_binomial':
+            B[:,0] = -(np.max(A @ B.T, axis=0) + 1e-2)
             
 #     if P1 is not None:
 #         A[:,d:] = P1 @ A[:,d:] / np.sqrt(n)
     if P2 is not None:        
-        B[:,:d] = P2 @ B[:,:d] / np.sqrt(p)
+        B[:,intercept:d] = P2 @ B[:,intercept:d] / np.sqrt(p)
 
 
-    func_val_pre = nll(Y, A, B, kwargs_glm['family'], kwargs_glm['nuisance'])
+    func_val_pre = nll(Y, A, B, kwargs_glm['family'], kwargs_glm['nuisance'])/p
     hist = [func_val_pre]
-    # to do: parallel
+    es = Early_Stopping(**kwargs_es)
     with tqdm(np.arange(max_iters)) as pbar:
         for t in pbar:
             func_val, A, B = update(
                 Y, A, B, d, lam, P1, P2,
                 kwargs_glm['family'], kwargs_glm['nuisance'], C,
-                kwargs_ls['alpha'], kwargs_ls['beta'], kwargs_ls['max_iters'], kwargs_ls['tol']
+                kwargs_ls['alpha'], kwargs_ls['beta'], kwargs_ls['max_iters'], kwargs_ls['tol'], intercept
             )
+            func_val /= p
             hist.append(func_val)
-            if not np.isfinite(func_val) or np.abs(func_val_pre - func_val)<eps*p:
+            if not np.isfinite(func_val) or es(func_val):
                 break
             else:
                 func_val_pre = func_val
