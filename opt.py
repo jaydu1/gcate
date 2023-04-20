@@ -29,6 +29,8 @@ def line_search(Y, A, x0, g, d, lam=0., alpha=1., beta=0.5, max_iters=100, tol=1
 
     # Evaluate the function at the starting point.
     f0 = nll(Y, A, x0, family, nuisance)
+    if lam>0.:
+        f0 += lam * np.sum(np.abs(x0[intercept:d]))
     
     # Initialize the step size.
     t = alpha
@@ -43,7 +45,9 @@ def line_search(Y, A, x0, g, d, lam=0., alpha=1., beta=0.5, max_iters=100, tol=1
             x1[intercept:d] = np.sign(x1[intercept:d]) * np.maximum(np.abs(x1[intercept:d]) - lam, 0.)
         
         # Evaluate the function at the new point.
-        f1 = nll(Y, A, x1, family, nuisance)
+        f1 = nll(Y, A, x1, family, nuisance) 
+        if lam>0.:
+            f1 += lam * np.sum(np.abs(x1[intercept:d]))
 
         # Check if the function has decreased sufficiently.
         if f1 < f0 - tol*t*norm_g:
@@ -128,7 +132,8 @@ def update(Y, A, B, d, lam, P1, P2,
 
     g = grad(Y, A, B, family, nuisance)
     if P2 is not None:
-        g[:,intercept:d] = P2 @ g[:,intercept:d]
+        g[:,:d] = P2 @ g[:,:d]
+        g[:, d:] = 0.
     for j in prange(p):
         B[j, :] = line_search(Y[:, j], A, B[j, :], g[j, :], d, lam,
                           alpha, beta, max_iters, tol,
@@ -141,7 +146,7 @@ def update(Y, A, B, d, lam, P1, P2,
 
 
 def alter_min(
-    Y, r, X=None, P2=None, C=None, lam=0.,
+    Y, r, X=None, P1=None, P2=None, C=None, lam=0.,
     A=None, B=None,
     kwargs_glm={}, kwargs_ls={}, kwargs_es={},
     max_iters=100, fit_intercept=True):
@@ -172,9 +177,9 @@ def alter_min(
         P1 = None
     else:
         d = X.shape[1]
-        Q, _ = sp.linalg.qr(X[:,intercept:], mode='economic')
-        P1 = np.identity(n) - Q @ Q.T
-        
+        if P1 is True:
+            Q, _ = sp.linalg.qr(X, mode='economic')
+            P1 = np.identity(n) - Q @ Q.T
         
 
     # to do : check X has col norm <= C
@@ -189,9 +194,11 @@ def alter_min(
         if d>0:
             A = np.c_[X, A]
             if kwargs_glm['family']=='gaussian':
-                B[:, :d] = np.c_[[sm.GLM(Y[:,j], X, family=sm.families.Gaussian()).fit().params for j in range(p)]]
+                B[:, :d] = np.c_[[sm.GLM(Y[:,j], X, family=sm.families.Gaussian()
+                                        ).fit_regularized(alpha=1e-5,L1_wt=0.).params for j in range(p)]]
             elif kwargs_glm['family']=='poisson' or kwargs_glm['family']=='negative_binomial':
-                B[:, :d] = np.c_[[sm.GLM(Y[:,j], X, family=sm.families.Poisson()).fit().params for j in range(p)]]
+                B[:, :d] = np.c_[[sm.GLM(Y[:,j], X, family=sm.families.Poisson()
+                                        ).fit_regularized(alpha=1e-5,L1_wt=0.).params for j in range(p)]]
             else:
                 raise ValueError('Family not recognized')
             # E = E - X@B[:, :d].T
@@ -207,10 +214,10 @@ def alter_min(
 #     if P1 is not None:
 #         A[:,d:] = P1 @ A[:,d:] / np.sqrt(n)
     if P2 is not None:        
-        B[:,intercept:d] = P2 @ B[:,intercept:d] / np.sqrt(p)
+        B = P2 @ B / np.sqrt(p)
 
 
-    func_val_pre = nll(Y, A, B, kwargs_glm['family'], kwargs_glm['nuisance'])/p
+    func_val_pre = nll(Y, A, B, kwargs_glm['family'], kwargs_glm['nuisance'])/p + lam * np.mean(np.abs(B[:,intercept:d]))
     hist = [func_val_pre]
     es = Early_Stopping(**kwargs_es)
     with tqdm(np.arange(max_iters)) as pbar:
@@ -220,7 +227,7 @@ def alter_min(
                 kwargs_glm['family'], kwargs_glm['nuisance'], C,
                 kwargs_ls['alpha'], kwargs_ls['beta'], kwargs_ls['max_iters'], kwargs_ls['tol'], intercept
             )
-            func_val /= p
+            func_val = func_val/p + lam * np.mean(np.abs(B[:,intercept:d]))
             hist.append(func_val)
             if not np.isfinite(func_val) or es(func_val):
                 break
