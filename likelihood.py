@@ -54,7 +54,7 @@ def nll(Y, A, B, family='gaussian', nuisance=1.):
 
 
 @njit
-def grad(Y, A, B, family='gaussian', nuisance=1.):
+def grad(Y, A, B, family='gaussian', nuisance=1., direct=False):
     """
     Compute the gradient of log likelihood with respect to B
     for generalized linear models with optional nuisance parameters.
@@ -97,8 +97,12 @@ def grad(Y, A, B, family='gaussian', nuisance=1.):
         b_p = nuisance / (np.exp(-Theta) - 1)
     else:
         raise ValueError('Family not recognized')
-    grad = - (Ty - b_p).T @ A / np.float64(n)#(np.float64(n) * np.float64(p))
-    return grad
+        
+    if direct:
+        return - (Ty - b_p)        
+    else:
+        grad = - (Ty - b_p).T @ A / np.float64(n)#(np.float64(n) * np.float64(p))
+        return grad
 
 
 
@@ -142,5 +146,5 @@ def hess(Y, Theta, family='gaussian', nuisance=1.):
         b_pp = nuisance * np.exp(Theta) / (1 - np.exp(Theta))**2
     else:
         raise ValueError('Family not recognized')
-    hess = b_pp #(np.float64(n) * np.float64(p))
+    hess = b_pp #/ np.float64(n)#( * np.float64(p))
     return hess
