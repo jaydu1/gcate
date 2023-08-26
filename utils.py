@@ -5,7 +5,7 @@ class Early_Stopping():
     '''
     The early-stopping monitor.
     '''
-    def __init__(self, warmup=25, patience=25, tolerance=0., is_minimize=True):
+    def __init__(self, warmup=25, patience=25, tolerance=0., is_minimize=True, **kwargs):
         self.warmup = warmup
         self.patience = patience
         self.tolerance = tolerance
