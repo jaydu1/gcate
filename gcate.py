@@ -5,9 +5,9 @@ from statsmodels.stats.multitest import multipletests
 
 
 def fit_gcate(Y, X, r, i,
-    kwargs_glm={}, kwargs_ls_1={}, kwargs_ls_2={}, kwargs_es={}, 
+    kwargs_glm={}, kwargs_ls_1={}, kwargs_ls_2={}, kwargs_es_1={}, kwargs_es_2={}, 
     # lam1=None, lam2=None, 
-    c1=None, c2=None, ratio_infer=None, intercept=0, offset=0, C=1e4,
+    c1=None, c2=None, ratio_infer=None, intercept=0, offset=0, C=1e5, w_type=0,
     load_model=False, save_model=False, path_model='gcate.npz'
 ):
     if not (X.ndim == 2 and Y.ndim == 2):
@@ -40,7 +40,7 @@ def fit_gcate(Y, X, r, i,
     else:
         A01, A02, info = alter_min(
             Y, r, X=X, P1=True, intercept=intercept, offset=offset, C=C,
-            kwargs_glm=kwargs_glm, kwargs_ls=kwargs_ls_1, kwargs_es=kwargs_es)
+            kwargs_glm=kwargs_glm, kwargs_ls=kwargs_ls_1, kwargs_es=kwargs_es_1)
         Q, _ = sp.linalg.qr(A02[:,d:], mode='economic')
         P_Gamma = np.identity(p) - Q @ Q.T
 
@@ -49,7 +49,7 @@ def fit_gcate(Y, X, r, i,
         lam1 = c1 * np.sqrt(np.log(p)/n)
         A1, A2, info = alter_min(
             Y, r, X=X, P2=P_Gamma, A=A01.copy(), B=A02.copy(), lam=lam1, intercept=intercept, offset=offset, C=C,
-            kwargs_glm=kwargs_glm, kwargs_ls=kwargs_ls_2, kwargs_es=kwargs_es)
+            kwargs_glm=kwargs_glm, kwargs_ls=kwargs_ls_2, kwargs_es=kwargs_es_2)
         
         
     if not load_model and save_model:
@@ -65,7 +65,7 @@ def fit_gcate(Y, X, r, i,
     if ratio_infer is None:
         B_de, se = debias(
             Y_infer, A1, A2, P_Gamma, d, i=i, kwargs_glm=kwargs_glm, intercept=intercept, offset=offset,
-            lam=lam2)
+            lam=lam2, w_type=w_type)
     else:
         pass
     

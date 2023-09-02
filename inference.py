@@ -54,11 +54,15 @@ def _debias_opt(bpp, g, X, P_Gamma_j, j, i, lam_n):
 
 
 
-def _debias_opt_path(bpp_tilde, bpp, g, X, P_Gamma_j, j, i, lams):
+def _debias_opt_path(bpp_tilde, bpp, g, X, P_Gamma_j, j, i, lams, w_type=0):
     n, d = X.shape
     
 #     w = bpp_tilde[:,j]/((np.sqrt(bpp_tilde) @ P_Gamma_j)**2 + 1e-8) / (np.sqrt(1/bpp) @ P_Gamma_j)**2
-    w = 1. / (np.sqrt(1/bpp) @ P_Gamma_j)**2
+    if w_type==0:
+        w = bpp[:,j]
+    elif w_type==1:
+        w = 1. / (np.sqrt(1/bpp) @ P_Gamma_j)**2
+        
     X_wt = np.sqrt(w)[:,None] * X
     X_w = X_wt
     
@@ -115,13 +119,16 @@ def _debias_opt_path(bpp_tilde, bpp, g, X, P_Gamma_j, j, i, lams):
 
 
 def debias(Y, A1, A2, P_Gamma, d, i,
-           lam, kwargs_glm={}, intercept=0, offset=0, n_jobs=48):
+           lam, kwargs_glm={}, intercept=0, offset=0, 
+           x_type=0, w_type=0, n_jobs=64, num_d=None):
     n, p = Y.shape
     
     Y = Y.astype(type_f)
     A1 = A1.astype(type_f)
     A2 = A2.astype(type_f)
 
+    if num_d is None:
+        num_d = d - offset
     # lam_n = c1 * np.sqrt(np.log(p)/n)
     
 #     g = grad(Y, A1, A2, **kwargs_glm)[:,i]
@@ -135,8 +142,8 @@ def debias(Y, A1, A2, P_Gamma, d, i,
     g = grad(Y, A1, A2, **kwargs_glm, direct=True)
     g = g/bpp
 
-    Theta_tilde = A1[:,:d] @ A2[:,:d].T    
-    bpp_tilde = hess(Y, Theta_tilde, **kwargs_glm)
+#     Theta_tilde = A1[:,:d] @ A2[:,:d].T    
+#     bpp_tilde = hess(Y, Theta_tilde, **kwargs_glm)
 #     g_tilde = grad(Y, A1[:,:d], A2[:,:d], **kwargs_glm, direct=True)
 #     g = g_tilde / bpp_tilde
     
@@ -144,8 +151,10 @@ def debias(Y, A1, A2, P_Gamma, d, i,
         lam = np.array([lam])
         
     with Parallel(n_jobs=n_jobs, verbose=0, timeout=99999) as parallel:
-        res = parallel(
-                delayed(_debias_opt_path)(bpp_tilde, bpp, g, A1[:,offset:d], P_Gamma[:, j], j, i-offset, lam) 
+        res = parallel(delayed(_debias_opt_path)(
+            bpp, bpp, g, 
+            A1[:,offset:] if x_type==0 else A1[:,offset:d], 
+            P_Gamma[:, j], j, i-offset, lam, w_type) 
             for j in tqdm(range(p))
             )
 #     res = np.r_[res]
@@ -154,9 +163,14 @@ def debias(Y, A1, A2, P_Gamma, d, i,
 #     for k in range(len(lam)):
 #         for j in range(2):
 #             res[:,j,k] = np.nan_to_num(res[:,j,k], nan=med[j,k])
+
+    
     B_de = A2[:,i][:,None] - res[:,1]
     
-    return B_de, res[:,0]
+    B_de = pd.DataFrame(B_de.T).fillna(method='bfill').values.T    
+    se = pd.DataFrame(res[:,0].T).fillna(method='bfill').values.T
+    
+    return B_de, se
 
 
 

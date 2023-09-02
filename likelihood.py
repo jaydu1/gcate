@@ -8,8 +8,20 @@ from numba import njit, prange
 type_f = np.float64
 #np.float32 # 
 
+
+@nb.vectorize
+def log1mexp(a):
+    if(a >= -np.log(type_f(2.))):
+        return np.log(-np.expm1(a)) 
+    else:
+        return np.log1p(-np.exp(a))
+    
+    
+    
+
+
 @njit
-def nll(Y, A, B, family='gaussian', nuisance=1.):
+def nll(Y, A, B, family, nuisance=np.ones((1,1))):
     """
     Compute the negative log likelihood for generalized linear models with optional nuisance parameters.
     
@@ -36,7 +48,6 @@ def nll(Y, A, B, family='gaussian', nuisance=1.):
     Theta = A @ B.T
     Ty = Y.copy()
     n = Y.shape[0]
-    nuisance = type_f(nuisance)
     
     if family == 'binomial':
         b = nuisance * np.log(type_f(1.) + np.exp(Theta))
@@ -47,8 +58,8 @@ def nll(Y, A, B, family='gaussian', nuisance=1.):
         b = Theta**2/type_f(2.)
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(-1e-2))
-        b = - nuisance * np.log(type_f(1.) - np.exp(Theta))
+        Theta = np.clip(Theta, -np.inf, type_f(-1e-6))
+        b = - nuisance * log1mexp(Theta)
     else:
         raise ValueError('Family not recognized')
     nll = - np.sum(Ty * Theta - b) / type_f(n)
@@ -57,7 +68,8 @@ def nll(Y, A, B, family='gaussian', nuisance=1.):
 
 
 @njit
-def grad(Y, A, B, family='gaussian', nuisance=1., direct=False):
+def grad(Y, A, B, family, nuisance=np.ones((1,1)), 
+         direct=False):
     """
     Compute the gradient of log likelihood with respect to B
     for generalized linear models with optional nuisance parameters.
@@ -86,7 +98,6 @@ def grad(Y, A, B, family='gaussian', nuisance=1., direct=False):
     Theta = A @ B.T
     Ty = Y.copy()
     n = Y.shape[0]
-    nuisance = type_f(nuisance)
     
     if family == 'binomial':
         b_p = nuisance / (type_f(1.) + np.exp(-Theta))
@@ -97,8 +108,8 @@ def grad(Y, A, B, family='gaussian', nuisance=1., direct=False):
         b_p = Theta
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(-1e-2))
-        b_p = nuisance / (np.exp(-Theta) - type_f(1.))
+        Theta = np.clip(Theta, -np.inf, type_f(-1e-6))
+        b_p = nuisance * np.exp(Theta) / (type_f(1.) - np.exp(Theta))
     else:
         raise ValueError('Family not recognized')
         
@@ -111,7 +122,7 @@ def grad(Y, A, B, family='gaussian', nuisance=1., direct=False):
 
 
 @njit
-def hess(Y, Theta, family='gaussian', nuisance=1.):
+def hess(Y, Theta, family, nuisance=np.ones((1,1))):
     """
     Compute the gradient of log likelihood with respect to B
     for generalized linear models with optional nuisance parameters.
@@ -137,7 +148,6 @@ def hess(Y, Theta, family='gaussian', nuisance=1.):
     """
     Ty = Y.copy()
     n = Y.shape[0]
-    nuisance = type_f(nuisance)
     
     if family == 'binomial':
         b_pp = nuisance * np.exp(-Theta) / (type_f(1.) + np.exp(-Theta))**2
@@ -147,7 +157,7 @@ def hess(Y, Theta, family='gaussian', nuisance=1.):
     elif family == 'gaussian':
         b_pp = np.ones_like(Theta)
     elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(-1e-2))
+        Theta = np.clip(Theta, -np.inf, type_f(-1e-6))
         b_pp = nuisance * np.exp(Theta) / (type_f(1.) - np.exp(Theta))**2
     else:
         raise ValueError('Family not recognized')

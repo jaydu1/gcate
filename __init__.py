@@ -4,6 +4,7 @@ from gcate.likelihood import *
 from gcate.opt import *
 from gcate.inference import *
 from gcate.gcate import *
+from gcate.glm import *
 
 __author__ = "Jin-Hong Du"
 __copyright__ = "Copyright 2023, The Confounder Adjustment Project"
