@@ -1,24 +1,23 @@
 import numpy as np
-from scipy.special import expit, xlogy, xlog1py, logsumexp, factorial
-from scipy.stats import binom, poisson, norm, nbinom
-import scipy as sp
+# from scipy.special import expit, xlogy, xlog1py, logsumexp, factorial
+# from scipy.stats import binom, poisson, norm, nbinom
+
 import numba as nb
 from numba import njit, prange
 
 type_f = np.float64
-#np.float32 # 
 
 
 @nb.vectorize
 def log1mexp(a):
+    '''
+    A numeral stable function to compute log(1-exp(a)) for a in [-inf,0].
+    '''
     if(a >= -np.log(type_f(2.))):
         return np.log(-np.expm1(a)) 
     else:
         return np.log1p(-np.exp(a))
     
-    
-    
-
 
 @njit
 def nll(Y, A, B, family, nuisance=np.ones((1,1))):
@@ -58,8 +57,8 @@ def nll(Y, A, B, family, nuisance=np.ones((1,1))):
         b = Theta**2/type_f(2.)
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(-1e-6))
-        b = - nuisance * log1mexp(Theta)
+        Theta = np.clip(Theta, -np.inf, type_f(1e2))
+        b = - nuisance * np.log1p(np.exp(Theta))
     else:
         raise ValueError('Family not recognized')
     nll = - np.sum(Ty * Theta - b) / type_f(n)
@@ -99,6 +98,18 @@ def grad(Y, A, B, family, nuisance=np.ones((1,1)),
     Ty = Y.copy()
     n = Y.shape[0]
     
+    if family == 'negative_binomial':
+        Theta = np.clip(Theta, -np.inf, type_f(1e2))
+        # grad with respect to theta
+        b_p = np.exp(Theta) 
+        # grad with respect to xi
+        grad = - (Ty - b_p) / (type_f(1.) + np.exp(Theta)/nuisance) 
+        
+        if not direct:
+            grad = grad.T @ A / type_f(n)
+
+        return grad
+    
     if family == 'binomial':
         b_p = nuisance / (type_f(1.) + np.exp(-Theta))
     elif family == 'poisson':
@@ -107,14 +118,11 @@ def grad(Y, A, B, family, nuisance=np.ones((1,1)),
     elif family == 'gaussian':
         b_p = Theta
         Ty /= np.sqrt(nuisance)
-    elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(-1e-6))
-        b_p = nuisance * np.exp(Theta) / (type_f(1.) - np.exp(Theta))
     else:
         raise ValueError('Family not recognized')
         
     if direct:
-        return - (Ty - b_p)        
+        return - (Ty - b_p)
     else:
         grad = - (Ty - b_p).T @ A / type_f(n)
         return grad
@@ -157,8 +165,8 @@ def hess(Y, Theta, family, nuisance=np.ones((1,1))):
     elif family == 'gaussian':
         b_pp = np.ones_like(Theta)
     elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(-1e-6))
-        b_pp = nuisance * np.exp(Theta) / (type_f(1.) - np.exp(Theta))**2
+        Theta = np.clip(Theta, -np.inf, type_f(1e2))
+        b_pp = np.exp(Theta) / (type_f(1.) + np.exp(Theta) / nuisance)
     else:
         raise ValueError('Family not recognized')
     hess = b_pp

@@ -57,7 +57,6 @@ def _debias_opt(bpp, g, X, P_Gamma_j, j, i, lam_n):
 def _debias_opt_path(bpp_tilde, bpp, g, X, P_Gamma_j, j, i, lams, w_type=0):
     n, d = X.shape
     
-#     w = bpp_tilde[:,j]/((np.sqrt(bpp_tilde) @ P_Gamma_j)**2 + 1e-8) / (np.sqrt(1/bpp) @ P_Gamma_j)**2
     if w_type==0:
         w = bpp[:,j]
     elif w_type==1:
@@ -66,14 +65,10 @@ def _debias_opt_path(bpp_tilde, bpp, g, X, P_Gamma_j, j, i, lams, w_type=0):
     X_wt = np.sqrt(w)[:,None] * X
     X_w = X_wt
     
-#     w = bpp_tilde[:,j]/((np.sqrt(bpp_tilde) @ P_Gamma_j)**2 + 1e-8)
-#     X_wt = np.sqrt(bpp_tilde[:,j] * w)[:,None] * X
-#     X_w = w[:,None] * np.sqrt((np.sqrt(bpp) @ P_Gamma_j)**2)[:,None] * X
-    
     ei = np.zeros((d,1))
     ei[i] = 1.0
     
-    hSigma = X_wt.T @ X_wt #+ 1e-6 * np.identity(d)
+    hSigma = X_wt.T @ X_wt
     scale = np.trace(hSigma)/d
     
     u = cp.Variable((d,1))
@@ -103,7 +98,6 @@ def _debias_opt_path(bpp_tilde, bpp, g, X, P_Gamma_j, j, i, lams, w_type=0):
         lam.value = lam_n
         try:
             obj_val = prob.solve()
-#             u_val = u.value
             u_val = u.value / 2.
             obj_val = np.mean((X_w @ u_val)**2)
             arr_se[i_lam] = np.sqrt(obj_val/n)
@@ -129,23 +123,11 @@ def debias(Y, A1, A2, P_Gamma, d, i,
 
     if num_d is None:
         num_d = d - offset
-    # lam_n = c1 * np.sqrt(np.log(p)/n)
-    
-#     g = grad(Y, A1, A2, **kwargs_glm)[:,i]
-#     g = np.abs(g) + 1e-6
-#     lams = np.minimum(lam / g, 
-#           np.minimum(lam * np.quantile(1/g, 0.05), 1e2)
-#          )
     
     Theta_hat = A1 @ A2.T
     bpp = hess(Y, Theta_hat, **kwargs_glm)
     g = grad(Y, A1, A2, **kwargs_glm, direct=True)
     g = g/bpp
-
-#     Theta_tilde = A1[:,:d] @ A2[:,:d].T    
-#     bpp_tilde = hess(Y, Theta_tilde, **kwargs_glm)
-#     g_tilde = grad(Y, A1[:,:d], A2[:,:d], **kwargs_glm, direct=True)
-#     g = g_tilde / bpp_tilde
     
     if np.isscalar(lam):
         lam = np.array([lam])
@@ -157,12 +139,7 @@ def debias(Y, A1, A2, P_Gamma, d, i,
             P_Gamma[:, j], j, i-offset, lam, w_type) 
             for j in tqdm(range(p))
             )
-#     res = np.r_[res]
     res = np.stack(res, axis=0)
-#     med = np.nanmedian(res, axis=0)
-#     for k in range(len(lam)):
-#         for j in range(2):
-#             res[:,j,k] = np.nan_to_num(res[:,j,k], nan=med[j,k])
 
     
     B_de = A2[:,i][:,None] - res[:,1]

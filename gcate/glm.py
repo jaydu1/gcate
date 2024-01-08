@@ -9,7 +9,7 @@ def init_inv_link(Y, family, disp):
     elif family=='poisson':
         val = np.log1p(Y)
     elif family=='negative_binomial':
-        val = np.log1p(Y/disp / (Y/disp + 1))
+        val = np.log1p(Y)
     elif family=='binomial':
         eps = (np.mean(Y, axis=0) + np.mean(Y, axis=1)) / 2 
         val = np.log((Y + eps)/(disp - Y + eps))
@@ -54,35 +54,10 @@ def fit_glm(Y, X, offset, family, disp):
         
     for j in range(p):
         if family=='negative_binomial':
-#             sm_family=sm.families.NegativeBinomial(
-#                 link=sm.genmod.families.links.NegativeBinomial(alpha=1./disp[j]), alpha=1./disp[j])
-            assert offset is None
-            sm_family = sm.families.Poisson()
-            B[j, :] = glm(Y[:,j], X, offset, sm_family)
-            Yp = 1 - 1 / (np.exp(X @ B[j, :])/disp[j] + 1.)
-            B[j, :] = glm(Yp, X, offset, sm_family)
-            
-            tmp = np.max(X @ B[j, :].T)
-            if tmp>-1e-4:
-                B[j, 0] = B[j, 0] - tmp - 1e-4
-        else:
-            B[j, :] = glm(Y[:,j], X, offset, sm_family)
+            sm_family=sm.families.NegativeBinomial(alpha=1./disp[j])
 
-#         # this does not guarantee theta<0
-#         if family=='negative_binomial' and np.max(np.abs(B[j,:])) > 1e1:
-#             if offset is not None:
-#                 B[j,:] = np.r_[np.minimum(- np.max(offset), 0.) - 1e-2, np.zeros(d-1)]
-#             else:
-#                 B[j,:] = np.r_[- 1e-2, np.zeros(d-1)]
-#                 raise ValueError("Optimization infeasible for gene {} during " \
-#                 "initialization with GLM. Consider remove it.".format(j))
+        B[j, :] = glm(Y[:,j], X, offset, sm_family)
 
-#         B_p = np.zeros((p,d))
-#         sm_family = sm.families.Poisson()
-#         for j in range(p):
-#             B_p[j, :] = glm(Y[:,j], X, offset, sm_family)
-#         idx = np.max(np.abs(B), axis=-1) > 1e2
-#         B[idx,:] = B_p[idx,:]
     return B
 
 
