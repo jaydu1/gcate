@@ -221,6 +221,9 @@ def update(Y, A, B, d, lam, P1, P2,
                               lam, alpha, beta, max_iters, tol
                              )
 
+#     if P2 is not None:
+#         B[:, offset:d] = P2 @ B[:, offset:d]
+#     B = prox_gd(B, g, eta, C, lam=lam)
     if P2 is None:
         B[:, d:] = np.clip(B[:, d:], -10., 10.)
     func_val = nll(Y, A, B, family, nuisance)
@@ -230,7 +233,7 @@ def update(Y, A, B, d, lam, P1, P2,
 
 def alter_min(
     Y, r, X=None, P1=None, P2=None, 
-    A=None, B=None, C=1e5,
+    A=None, B=None, C=None,
     kwargs_glm={}, kwargs_ls={}, kwargs_es={}, 
     lam=0., num_d=None, num_missing=None,
     intercept=1, offset=1, verbose=True):
@@ -262,19 +265,20 @@ def alter_min(
         info (dict): A dictionary containing the information of the optimization.
     '''
     n, p = Y.shape
-    
+    d = X.shape[1]
+    assert d>0
+
     kwargs_glm = {**{'family':'gaussian', 'nuisance':np.ones((1,p))}, **kwargs_glm}
     kwargs_ls = {**{'alpha':0.1, 'beta':0.5, 'max_iters':20, 'tol':1e-4}, **kwargs_ls}
     kwargs_es = {**{'max_iters':200, 'warmup':5, 'patience':20, 'tolerance':1e-4}, **kwargs_es}
     
-    
     if verbose:
         pprint.pprint({'kwargs_glm':kwargs_glm,'kwargs_ls':kwargs_ls,'kwargs_es':kwargs_es})
     family, nuisance = kwargs_glm['family'], kwargs_glm['nuisance'].astype(type_f)
-    
-    
-    d = X.shape[1]
-    assert d>0
+
+    if C is None:
+        C = 1e5 if family == 'poisson' else 1e3
+
     if P1 is True:
         Q, _ = sp.linalg.qr(X[:,offset:], mode='economic')
         P1 = np.identity(n) - Q @ Q.T
@@ -288,6 +292,7 @@ def alter_min(
         
     if verbose:
         pprint.pprint({'n':n,'p':p,'d':d,'r':r})
+    # to do : check X has col norm <= C
 
     # initialization for Theta = A @ B^T
     if A is None or B is None:
@@ -350,6 +355,9 @@ def alter_min(
             elif es(func_val):
                 print('Early stopped.')
                 break
+#             elif lam>0. and np.mean(np.abs(B[:,d-num_d:d])<1e-4)>0.95:
+#                 print('Stopped because coefficients are too sparse.')
+#                 break
             else:
                 func_val_pre = func_val
             pbar.set_postfix(nll='{:.02f}'.format(func_val))

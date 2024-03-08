@@ -1,6 +1,13 @@
 import numpy as np
+import pandas as pd
+import scipy as sp
 import warnings
 warnings.filterwarnings('ignore')
+
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import host_subplot
+
 
 
 class Early_Stopping():
@@ -36,3 +43,120 @@ class Early_Stopping():
             return True
         else:
             return False
+
+
+
+
+def plot_r(df_r, c=1):
+    '''
+    Plot the results of the estimation of the number of latent factors.
+
+    Parameters
+    ----------
+    df_r : DataFrame
+        Results of the number of latent factors.
+    c : float
+        The constant factor for the complexity term.
+
+    Returns
+    -------
+    fig : Figure
+        The figure of the plot.
+    '''
+    
+    
+    fig = plt.figure(figsize=[18,6])
+    host = host_subplot(121)
+    par = host.twinx()
+
+    host.set_xlabel("Number of factors $r$")
+    host.set_ylabel("NLL")
+    # par.set_ylabel("$\nu$")
+
+
+    p1, = host.plot(df_r['r'], df_r['nll'], '-o', label="NLL")
+    p2, = par.plot(df_r['r'], df_r['nu']*c, '-o', label=r"$\nu$")
+
+
+    host.set_xticks(df_r['r'])
+    host.yaxis.get_label().set_color(p1.get_color())
+    par.tick_params(axis='y', colors=p2.get_color(), labelsize=14)
+    host.tick_params(axis='y', colors=p1.get_color(), labelsize=14)
+
+    p1, = host.plot(df_r['r'], df_r['nll']+df_r['nu']*c, '-o', label="JIC")
+    host.legend(labelcolor="linecolor")
+
+
+    host = host_subplot(122)
+    par = host.twinx()
+    host.set_xlabel("Number of factors $r$")
+    par.set_ylabel(r"$\nu$")
+
+    p1, = host.plot(df_r['r'].iloc[1:], -np.diff(df_r['nll']), '-o', label='diff LL')
+    p2, = par.plot(df_r['r'].iloc[1:], np.diff(df_r['nu'])*c,  '-o', label=r'diff $\nu$')
+
+    host.legend(labelcolor="linecolor")
+    host.set_xticks(df_r['r'].iloc[1:])
+    par.set_ylim(*host.get_ylim())
+    
+    par.yaxis.get_label().set_color(p2.get_color())
+    par.tick_params(axis='y', colors=p2.get_color(), labelsize=14)
+    host.tick_params(axis='y', colors=p1.get_color(), labelsize=14)
+
+    return fig
+
+
+def plot_lam(df_res):
+    '''
+    Plot the results of the estimation of the regularization parameter.
+
+    Parameters
+    ----------
+    df_res : DataFrame
+        Results of the regularization parameter.
+
+    Returns
+    -------
+    fig : Figure
+        The figure of the plot.
+    lams, medians, mads : numpy array
+        The median and mad statistics.
+    '''
+
+    lams, medians, mads = estimate_lam(df_res)
+    
+    fig = plt.figure(figsize=[8,6])
+    host = host_subplot(111)
+    par = host.twinx()
+
+    host.set_xlabel("Penalty $\lambda_n$")
+    host.set_ylabel("Median")
+    par.set_ylabel("MAD")
+
+    p1, = host.plot(lams, medians, '-o', label="Median")
+    p2, = par.plot(lams, mads, '-o', label="MAD")
+
+    host.legend(labelcolor="linecolor")
+
+    host.yaxis.get_label().set_color(p1.get_color())
+    par.yaxis.get_label().set_color(p2.get_color())
+
+    par.tick_params(axis='y', colors=p2.get_color(), labelsize=14)
+    host.tick_params(axis='y', colors=p1.get_color(), labelsize=14)
+    
+    return fig, (lams, medians, mads)
+
+
+def estimate_lam(df_res):
+    lams = df_res['lam'].unique()
+    medians = []
+    mads = []
+    for lam in lams:
+        _df = df_res[df_res['lam']==lam]
+        median = np.nanmedian(_df['z_scores'])
+        mad = sp.stats.median_abs_deviation(_df['z_scores'], scale="normal", nan_policy='omit')
+        medians.append(median)
+        mads.append(mad)
+    medians = np.array(medians)
+    mads = np.array(mads)
+    return lams, medians, mads

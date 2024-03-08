@@ -6,6 +6,18 @@ import numba as nb
 from numba import njit, prange
 
 type_f = np.float64
+#np.float32 # 
+
+
+from scipy.special import xlogy, gammaln
+
+def log_h(y, family, nuisance):
+    if family=='negative_binomial':
+        return gammaln(y + nuisance) - gammaln(nuisance) - gammaln(y+1)
+    elif family=='poisson':
+        return - gammaln(y+1)
+
+
 
 
 @nb.vectorize
@@ -17,6 +29,9 @@ def log1mexp(a):
         return np.log(-np.expm1(a)) 
     else:
         return np.log1p(-np.exp(a))
+
+    
+
     
 
 @njit
@@ -57,8 +72,10 @@ def nll(Y, A, B, family, nuisance=np.ones((1,1))):
         b = Theta**2/type_f(2.)
         Ty /= np.sqrt(nuisance)
     elif family == 'negative_binomial':
-        Theta = np.clip(Theta, -np.inf, type_f(1e2))
-        b = - nuisance * np.log1p(np.exp(Theta))
+        Xi = np.clip(Theta, -np.inf, type_f(1e2))
+        tmp = 1 / (type_f(1.) + np.exp(Xi) / nuisance)
+        Theta = np.log1p(-tmp)
+        b = - nuisance * np.log(tmp)
     else:
         raise ValueError('Family not recognized')
     nll = - np.sum(Ty * Theta - b) / type_f(n)

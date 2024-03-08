@@ -10,6 +10,7 @@ def init_inv_link(Y, family, disp):
         val = np.log1p(Y)
     elif family=='negative_binomial':
         val = np.log1p(Y)
+#         val = np.log1p(Y/disp / (Y/disp + 1))
     elif family=='binomial':
         eps = (np.mean(Y, axis=0) + np.mean(Y, axis=1)) / 2 
         val = np.log((Y + eps)/(disp - Y + eps))
@@ -57,6 +58,10 @@ def fit_glm(Y, X, offset, family, disp):
             sm_family=sm.families.NegativeBinomial(alpha=1./disp[j])
 
         B[j, :] = glm(Y[:,j], X, offset, sm_family)
+            
+#         if family=='negative_binomial' and np.max(np.abs(B[j,:])) > 1e1:
+#             sm_family = sm.families.Poisson()
+#             B[j, :] = glm(Y[:,j], X, offset, sm_family)
 
     return B
 

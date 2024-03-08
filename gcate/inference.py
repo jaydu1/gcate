@@ -123,11 +123,23 @@ def debias(Y, A1, A2, P_Gamma, d, i,
 
     if num_d is None:
         num_d = d - offset
+    # lam_n = c1 * np.sqrt(np.log(p)/n)
+    
+#     g = grad(Y, A1, A2, **kwargs_glm)[:,i]
+#     g = np.abs(g) + 1e-6
+#     lams = np.minimum(lam / g, 
+#           np.minimum(lam * np.quantile(1/g, 0.05), 1e2)
+#          )
     
     Theta_hat = A1 @ A2.T
     bpp = hess(Y, Theta_hat, **kwargs_glm)
     g = grad(Y, A1, A2, **kwargs_glm, direct=True)
     g = g/bpp
+
+#     Theta_tilde = A1[:,:d] @ A2[:,:d].T    
+#     bpp_tilde = hess(Y, Theta_tilde, **kwargs_glm)
+#     g_tilde = grad(Y, A1[:,:d], A2[:,:d], **kwargs_glm, direct=True)
+#     g = g_tilde / bpp_tilde
     
     if np.isscalar(lam):
         lam = np.array([lam])
@@ -139,7 +151,12 @@ def debias(Y, A1, A2, P_Gamma, d, i,
             P_Gamma[:, j], j, i-offset, lam, w_type) 
             for j in tqdm(range(p))
             )
+#     res = np.r_[res]
     res = np.stack(res, axis=0)
+#     med = np.nanmedian(res, axis=0)
+#     for k in range(len(lam)):
+#         for j in range(2):
+#             res[:,j,k] = np.nan_to_num(res[:,j,k], nan=med[j,k])
 
     
     B_de = A2[:,i][:,None] - res[:,1]
