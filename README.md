@@ -20,9 +20,16 @@ This repository contains the code for reproducing simulation and real data analy
     - `ex3_run_gcate.py`: Run GCATE.
     - `ex3_run_glm.py`: Run GLM naive.
     - `ex3_run_cate.R`: Run CATE.
+- ex4: Lupus data
+    - `ex4_preprocess_lupus.py`: preprocess the lupus data    
+    - `ex4_run_gcate.py`: Run GCATE.
+    - `ex4_run_glm.py`: Run GLM oracle and GLM naive.
+    - `ex4_run_cate.R`: Run CATE.
+    - `ex4_GO.R`: gene ontology analysis
 
 ### Jupyter notebooks:
 - `Plot_simu.ipynb`: Reproduce the figures and tables for simulation studies.
+- `Plot_lupus.ipynb`: Reproduce the figures and tables for the lupus data analysis.
 
 
 ## Requirements
@@ -74,3 +81,10 @@ For simulation studies, the workflow is as follows:
 - Run scripts of individual methods, and the results will be stored in the folder `result/`.
 - Use `Plot_simu.ipynb` to reproduce the figures (Figures 2-6 and F1-F2) and table (Table G2) based on the previous results.
 
+For real data analysis, the workflow is as follows:
+
+- Obtain the h5ad file of the lupus data from the authors of the original paper and store it in the folder `data/lupus/GSE174188_CLUES1_adjusted.h5ad`.
+- Run `ex4_preprocess_lupus.py` to preprocess the lupus data.
+- Run scripts of individual methods, and the results will be stored in the folder `result/lupus/`.
+- Use `Plot_lupus.ipynb` to reproduce the figures (Figures 7 and G3-G7) and tables (Tables G3-G4) based on the previous results.
+- Run `ex4_GO.R` to perform gene ontology analysis.

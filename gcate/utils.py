@@ -106,7 +106,8 @@ def plot_r(df_r, c=1):
     return fig
 
 
-def plot_lam(df_res):
+def plot_lam(df_res, med_max=np.inf, mad_max=np.inf,
+    lam_min=0., lam_max=None, alpha=0.1):
     '''
     Plot the results of the estimation of the regularization parameter.
 
@@ -114,6 +115,16 @@ def plot_lam(df_res):
     ----------
     df_res : DataFrame
         Results of the regularization parameter.
+    med_max : float
+        The maximum value of the median.
+    mad_max : float
+        The maximum value of the MAD.
+    lam_min : float
+        The minimum value of the regularization parameter.
+    lam_max : float
+        The maximum value of the regularization parameter.
+    alpha : float
+        The transparency of the shaded area.
 
     Returns
     -------
@@ -144,6 +155,16 @@ def plot_lam(df_res):
     par.tick_params(axis='y', colors=p2.get_color(), labelsize=14)
     host.tick_params(axis='y', colors=p1.get_color(), labelsize=14)
     
+    if lam_max is None:
+        idx = (np.abs(medians) < med_max)&(mads < mad_max)
+        if np.any(idx):
+            lam_max = np.max(lams[idx])
+        else:
+            lam_max = np.inf
+            
+    if lam_max < np.max(lams):
+        fig.axes[0].axvspan(lam_min, lam_max, color='green', alpha=alpha)
+
     return fig, (lams, medians, mads)
 
 
