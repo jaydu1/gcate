@@ -5,6 +5,11 @@ This repository contains the code for reproducing simulation and real data analy
 
 ## Files
 
+
+### Python module
+
+- gcate: The main module for GCATE.
+
 ### Scripts
 
 - ex1: Simulation with Poisson DGP with sample splitting
