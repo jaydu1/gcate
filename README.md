@@ -87,4 +87,4 @@ For real data analysis, the workflow is as follows:
 - Run `ex4_preprocess_lupus.py` to preprocess the lupus data.
 - Run scripts of individual methods, and the results will be stored in the folder `result/lupus/`.
 - Use `Plot_lupus.ipynb` to reproduce the figures (Figures 7 and G3-G7) and tables (Tables G3-G4) based on the previous results.
-- Run `ex4_GO.R` to perform gene ontology analysis.
+- Run `ex4_GO.R` to perform gene ontology analysis (Figrue G8).
