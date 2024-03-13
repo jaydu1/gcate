@@ -70,11 +70,11 @@ def plot_r(df_r, c=1):
     par = host.twinx()
 
     host.set_xlabel("Number of factors $r$")
-    host.set_ylabel("NLL")
+    host.set_ylabel("Deviance")
     # par.set_ylabel("$\nu$")
 
 
-    p1, = host.plot(df_r['r'], df_r['nll'], '-o', label="NLL")
+    p1, = host.plot(df_r['r'], df_r['deviance'], '-o', label="Deviance")
     p2, = par.plot(df_r['r'], df_r['nu']*c, '-o', label=r"$\nu$")
 
 
@@ -83,7 +83,7 @@ def plot_r(df_r, c=1):
     par.tick_params(axis='y', colors=p2.get_color(), labelsize=14)
     host.tick_params(axis='y', colors=p1.get_color(), labelsize=14)
 
-    p1, = host.plot(df_r['r'], df_r['nll']+df_r['nu']*c, '-o', label="JIC")
+    p1, = host.plot(df_r['r'], df_r['deviance']+df_r['nu']*c, '-o', label="JIC")
     host.legend(labelcolor="linecolor")
 
 
@@ -92,7 +92,7 @@ def plot_r(df_r, c=1):
     host.set_xlabel("Number of factors $r$")
     par.set_ylabel(r"$\nu$")
 
-    p1, = host.plot(df_r['r'].iloc[1:], -np.diff(df_r['nll']), '-o', label='diff LL')
+    p1, = host.plot(df_r['r'].iloc[1:], -np.diff(df_r['deviance']), '-o', label='diff dev')
     p2, = par.plot(df_r['r'].iloc[1:], np.diff(df_r['nu'])*c,  '-o', label=r'diff $\nu$')
 
     host.legend(labelcolor="linecolor")

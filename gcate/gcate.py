@@ -299,5 +299,5 @@ def estimate_r(Y, X, r_max, c=1.,
         jic = ll + c * nu
         res.append([r, ll, nu, jic])
 
-    df_r = pd.DataFrame(res, columns=['r', 'nll', 'nu', 'JIC'])
+    df_r = pd.DataFrame(res, columns=['r', 'deviance', 'nu', 'JIC'])
     return df_r
