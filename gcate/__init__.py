@@ -7,11 +7,11 @@ from gcate.gcate import *
 from gcate.glm import *
 from gcate.utils import *
 
-__author__ = "Jin-Hong Du"
+__author__ = ""
 __copyright__ = "Copyright 2023, The Confounder Adjustment Project"
 
 __license__ = "MIT"
 __version__ = "0.0.0"
-__maintainer__ = "Jin-Hong Du"
-__email__ = "jinhongd@andrew.cmu.edu"
+__maintainer__ = ""
+__email__ = ""
 __status__ = "Development"
