@@ -59,6 +59,7 @@ python | 3.8.12
 scanpy | 1.9.3 
 scikit-learn | 1.1.2 
 scipy | 1.10.1 
+seaborn | 0.13.0
 statsmodels | 0.13.5 
 tqdm | 4.62.3
 
