@@ -25,7 +25,7 @@ path_result = 'result/lupus/'
 os.makedirs(path_result, exist_ok=True)
 
 cell_types =  ['T4', 'cM', 'B', 'T8', 'NK']
-for ic, cell_type in enumerate(cell_types[4:]):
+for ic, cell_type in enumerate(cell_types):
     print(cell_type)
     
     file_name = path_data + 'data_lupus_{}.npz'.format(cell_type)

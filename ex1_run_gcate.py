@@ -31,13 +31,7 @@ intercept = 1
 offset = 0
 
 p = 3000
-
-
-n_list = [100,250]
-r_list = [2,10]
-n = n_list[int(sys.argv[1])]
-r = r_list[int(sys.argv[2])]
-
+n = 250; r = 2
 
 for seed in range(100):
     if os.path.exists(path_result+'gcate_{}_{}_{}_{}.csv'.format(family,n,r,seed)):
