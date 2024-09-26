@@ -98,7 +98,7 @@ For simulation studies, the workflow is as follows:
 
 For real data analysis, the workflow is as follows:
 
-- Obtain the h5ad file of the lupus data from the authors of the original paper and store it in the folder `data/lupus/GSE174188_CLUES1_adjusted.h5ad`.
+- Obtain the h5ad file of the [lupus data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE174188) from the authors of the original paper and store it in the folder `data/lupus/GSE174188_CLUES1_adjusted.h5ad`.
 - Run `ex4_preprocess_lupus.py` to preprocess the lupus data.
 - Run scripts of individual methods (`ex4_run_glm.py`, `ex4_run_gcate.py`, `ex4_run_gcate_full.py`, `ex4_run_cate.R`, `ex4_run_cate_full.R`), and the results will be stored in the folder `result/lupus/`.
 - Use `Plot_lupus.ipynb` to reproduce the figures (Figures 6, G4-G9, and G11) and tables (Tables G3-G4) based on the previous results.
